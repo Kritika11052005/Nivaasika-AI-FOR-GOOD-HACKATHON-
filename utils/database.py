@@ -1,24 +1,36 @@
 import streamlit as st
 import snowflake.connector
-from dotenv import load_dotenv
 import os
-
-# Load environment variables
-load_dotenv()
 
 @st.cache_resource
 def get_snowflake_connection():
     """Create and cache Snowflake connection"""
     try:
-        conn = snowflake.connector.connect(
-            account=os.getenv('SNOWFLAKE_ACCOUNT'),
-            user=os.getenv('SNOWFLAKE_USER'),
-            password=os.getenv('SNOWFLAKE_PASSWORD'),
-            database=os.getenv('SNOWFLAKE_DATABASE'),
-            schema=os.getenv('SNOWFLAKE_SCHEMA'),
-            warehouse=os.getenv('SNOWFLAKE_WAREHOUSE'),
-            role=os.getenv('SNOWFLAKE_ROLE')
-        )
+        # Try to get credentials from Streamlit secrets first (for cloud deployment)
+        if hasattr(st, 'secrets') and 'snowflake' in st.secrets:
+            conn = snowflake.connector.connect(
+                account=st.secrets['snowflake']['account'],
+                user=st.secrets['snowflake']['user'],
+                password=st.secrets['snowflake']['password'],
+                database=st.secrets['snowflake']['database'],
+                schema=st.secrets['snowflake']['schema'],
+                warehouse=st.secrets['snowflake']['warehouse'],
+                role=st.secrets['snowflake']['role']
+            )
+        # Fall back to environment variables (for local development)
+        else:
+            from dotenv import load_dotenv
+            load_dotenv()
+            
+            conn = snowflake.connector.connect(
+                account=os.getenv('SNOWFLAKE_ACCOUNT'),
+                user=os.getenv('SNOWFLAKE_USER'),
+                password=os.getenv('SNOWFLAKE_PASSWORD'),
+                database=os.getenv('SNOWFLAKE_DATABASE'),
+                schema=os.getenv('SNOWFLAKE_SCHEMA'),
+                warehouse=os.getenv('SNOWFLAKE_WAREHOUSE'),
+                role=os.getenv('SNOWFLAKE_ROLE')
+            )
         return conn
     except Exception as e:
         st.error(f"Failed to connect to Snowflake: {str(e)}")

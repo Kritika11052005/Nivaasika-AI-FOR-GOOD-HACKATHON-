@@ -1,17 +1,30 @@
 import google.generativeai as genai
-from dotenv import load_dotenv
 import os
 import json
 from PIL import Image
-import io
 import streamlit as st
 from utils.rate_limiter import gemini_rate_limiter
 
-# Load environment variables
-load_dotenv()
+# Configure Gemini API
+def get_gemini_api_key():
+    """Get Gemini API key from secrets or environment"""
+    try:
+        # Try Streamlit secrets first (for cloud deployment)
+        if hasattr(st, 'secrets') and 'GEMINI_API_KEY' in st.secrets:
+            return st.secrets['GEMINI_API_KEY']
+        # Fall back to environment variable (for local development)
+        else:
+            from dotenv import load_dotenv
+            load_dotenv()
+            return os.getenv('GEMINI_API_KEY')
+    except Exception as e:
+        st.error(f"Failed to load Gemini API key: {str(e)}")
+        return None
 
 # Configure Gemini
-genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
+api_key = get_gemini_api_key()
+if api_key:
+    genai.configure(api_key=api_key)
 
 # Flag to enable/disable mock mode
 USE_MOCK_MODE = False  # Set to True to use mock data instead of API
