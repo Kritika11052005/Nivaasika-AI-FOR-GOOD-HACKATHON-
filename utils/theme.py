@@ -115,14 +115,63 @@ def apply_theme_styles():
             border-radius: 8px !important;
         }}
         
+        /* ===== FILE UPLOADER FIX ===== */
+        [data-testid="stFileUploader"],
+        [data-testid="stFileUploader"] section,
+        [data-testid="stFileUploadDropzone"],
+        [data-testid="stFileUploader"] > div,
+        section[data-testid="stFileUploadDropzone"] {{
+            background-color: {colors['input_bg']} !important;
+            background: {colors['input_bg']} !important;
+            border: 2px dashed {colors['border']} !important;
+            border-radius: 12px !important;
+        }}
+        
+        /* File uploader text and labels */
+        [data-testid="stFileUploader"] small,
+        [data-testid="stFileUploader"] span,
+        [data-testid="stFileUploadDropzone"] span,
+        [data-testid="stFileUploader"] label,
+        [data-testid="stFileUploader"] p {{
+            color: {colors['text']} !important;
+        }}
+        
+        /* File uploader buttons */
+        [data-testid="stFileUploader"] button,
+        [data-testid="stFileUploadDropzone"] button {{
+            background-color: {colors['surface']} !important;
+            background: {colors['surface']} !important;
+            color: {colors['text']} !important;
+            border: 2px solid {colors['border']} !important;
+        }}
+        
+        [data-testid="stFileUploader"] button:hover,
+        [data-testid="stFileUploadDropzone"] button:hover {{
+            background-color: {colors['primary']} !important;
+            color: white !important;
+            border-color: {colors['primary']} !important;
+        }}
+        
         /* Input containers */
         [data-baseweb="input"],
         [data-baseweb="base-input"],
         .stTextInput > div > div,
         .stNumberInput > div > div,
-        .stTextArea > div > div {{
+        .stTextArea > div > div,
+        .stTextArea > div {{
             background-color: {colors['input_bg']} !important;
             background: {colors['input_bg']} !important;
+        }}
+        
+        /* Textarea specific - more aggressive */
+        .stTextArea textarea,
+        textarea[aria-label*="notes"],
+        textarea[placeholder*="observations"] {{
+            background-color: {colors['input_bg']} !important;
+            background: {colors['input_bg']} !important;
+            color: {colors['input_text']} !important;
+            border: 2px solid {colors['border']} !important;
+            border-radius: 8px !important;
         }}
         
         /* Number input buttons - CRITICAL FIX */
@@ -219,9 +268,77 @@ def apply_theme_styles():
         .stNumberInput label,
         .stSelectbox label,
         .stMultiSelect label,
+        .stFileUploader label,
         label {{
             color: {colors['text']} !important;
             font-weight: 600 !important;
+        }}
+        
+        /* ===== STREAMLIT EXPANDER FIX - MAXIMUM SPECIFICITY ===== */
+        /* Force on ALL details elements in the app */
+        div[data-testid="stExpander"] details,
+        div[data-testid="stExpander"] details summary,
+        div[data-testid="stExpander"] details[open] summary,
+        .main div[data-testid="stExpander"] details summary,
+        section.main div[data-testid="stExpander"] details summary {{
+            background-color: {colors['surface']} !important;
+            background: {colors['surface']} !important;
+            color: {colors['text']} !important;
+            border-color: {colors['border']} !important;
+        }}
+        
+        /* Force background on wrapper divs */
+        div[data-testid="stExpander"] details > div,
+        div[data-testid="stExpander"] > div {{
+            background-color: {colors['surface']} !important;
+        }}
+        
+        /* All text content */
+        div[data-testid="stExpander"] details summary p,
+        div[data-testid="stExpander"] details summary span,
+        div[data-testid="stExpander"] details summary div,
+        div[data-testid="stExpander"] details summary * {{
+            color: {colors['text']} !important;
+            background-color: transparent !important;
+        }}
+        
+        /* SVG icons */
+        div[data-testid="stExpander"] details summary svg,
+        div[data-testid="stExpander"] svg {{
+            fill: {colors['text']} !important;
+            color: {colors['text']} !important;
+        }}
+        
+        /* Expander content area */
+        [data-testid="stExpander"] > div,
+        .streamlit-expanderContent,
+        details[open] {{
+            background-color: {colors['background']} !important;
+        }}
+        
+        /* All elements inside expanders */
+        [data-testid="stExpander"] *,
+        .streamlit-expanderContent *,
+        details * {{
+            color: {colors['text']} !important;
+        }}
+        
+        /* File uploaders inside expanders */
+        [data-testid="stExpander"] [data-testid="stFileUploader"],
+        [data-testid="stExpander"] [data-testid="stFileUploader"] section,
+        [data-testid="stExpander"] [data-testid="stFileUploadDropzone"],
+        details [data-testid="stFileUploader"],
+        details [data-testid="stFileUploadDropzone"] {{
+            background-color: {colors['input_bg']} !important;
+            border: 2px dashed {colors['border']} !important;
+        }}
+        
+        /* Textareas inside expanders */
+        [data-testid="stExpander"] textarea,
+        details textarea {{
+            background-color: {colors['input_bg']} !important;
+            color: {colors['input_text']} !important;
+            border: 2px solid {colors['border']} !important;
         }}
         
         /* ===== HEADERS ===== */
@@ -407,6 +524,83 @@ def apply_theme_styles():
             border-color: transparent !important;
         }}
         
+        /* ===== DATAFRAMES / TABLES ===== */
+        /* Dataframe container */
+        [data-testid="stDataFrame"],
+        .stDataFrame,
+        div[data-testid="stDataFrame"] > div {{
+            background-color: {colors['card_bg']} !important;
+            color: {colors['text']} !important;
+        }}
+        
+        /* Table elements */
+        [data-testid="stDataFrame"] table,
+        .stDataFrame table,
+        table {{
+            background-color: {colors['card_bg']} !important;
+            color: {colors['text']} !important;
+            border-color: {colors['border']} !important;
+        }}
+        
+        /* Table headers */
+        [data-testid="stDataFrame"] thead,
+        [data-testid="stDataFrame"] th,
+        .stDataFrame thead,
+        .stDataFrame th,
+        table thead,
+        table th {{
+            background-color: {colors['surface']} !important;
+            color: {colors['text']} !important;
+            border-color: {colors['border']} !important;
+            font-weight: 700 !important;
+        }}
+        
+        /* Table body */
+        [data-testid="stDataFrame"] tbody,
+        [data-testid="stDataFrame"] td,
+        .stDataFrame tbody,
+        .stDataFrame td,
+        table tbody,
+        table td {{
+            background-color: {colors['card_bg']} !important;
+            color: {colors['text']} !important;
+            border-color: {colors['border']} !important;
+        }}
+        
+        /* Table rows - alternate colors */
+        [data-testid="stDataFrame"] tbody tr:nth-child(even),
+        .stDataFrame tbody tr:nth-child(even),
+        table tbody tr:nth-child(even) {{
+            background-color: {colors['surface']} !important;
+        }}
+        
+        /* Table row hover */
+        [data-testid="stDataFrame"] tbody tr:hover,
+        .stDataFrame tbody tr:hover,
+        table tbody tr:hover {{
+            background-color: {colors['card_hover']} !important;
+        }}
+        
+        /* All text inside tables */
+        [data-testid="stDataFrame"] *,
+        .stDataFrame *,
+        table * {{
+            color: {colors['text']} !important;
+        }}
+        
+        /* Dataframe toolbar/controls */
+        [data-testid="stDataFrame"] button,
+        .stDataFrame button {{
+            background-color: {colors['surface']} !important;
+            color: {colors['text']} !important;
+            border: 1px solid {colors['border']} !important;
+        }}
+        
+        [data-testid="stDataFrame"] button:hover,
+        .stDataFrame button:hover {{
+            background-color: {colors['card_hover']} !important;
+        }}
+        
         /* ===== METRICS ===== */
         [data-testid="stMetricValue"] {{
             font-size: 2.5rem !important;
@@ -457,16 +651,51 @@ def apply_theme_styles():
         }}
         
         /* ===== EXPANDERS ===== */
+        [data-testid="stExpander"],
         .streamlit-expanderHeader {{
             background: {colors['surface']} !important;
             color: {colors['text']} !important;
             border: 1px solid {colors['border']} !important;
         }}
         
+        /* Expander details element - this is the actual container */
+        [data-testid="stExpander"] details,
+        [data-testid="stExpander"] details summary,
+        details[data-testid] {{
+            background-color: {colors['surface']} !important;
+            background: {colors['surface']} !important;
+        }}
+        
+        /* All text inside expander headers */
+        [data-testid="stExpander"] details summary *,
+        [data-testid="stExpander"] summary * {{
+            color: {colors['text']} !important;
+        }}
+        
         /* ===== ALERTS ===== */
         .stSuccess, .stWarning, .stError, .stInfo {{
             background: {colors['card_bg']} !important;
             color: {colors['text']} !important;
+        }}
+        
+        /* ===== PROPERTY CARDS - DARK MODE FIX ===== */
+        .property-card {{
+            background-color: {colors['card_bg']} !important;
+            border: 1px solid {colors['border']} !important;
+            color: {colors['text']} !important;
+        }}
+        
+        .property-card * {{
+            color: {colors['text']} !important;
+        }}
+        
+        .property-card h3 {{
+            color: {colors['primary']} !important;
+        }}
+        
+        .property-card strong {{
+            color: {colors['text']} !important;
+            font-weight: 700 !important;
         }}
     </style>
     """, unsafe_allow_html=True)

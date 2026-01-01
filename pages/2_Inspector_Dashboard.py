@@ -30,6 +30,11 @@ with col3:
     if st.button(theme_icon, key="theme_toggle"):
         toggle_theme()
         st.rerun()
+
+# Initialize view state
+if 'inspector_view' not in st.session_state:
+    st.session_state.inspector_view = 'list'
+
 # Custom CSS
 st.markdown("""
 <style>
@@ -61,12 +66,9 @@ st.markdown("Inspect properties, upload images, and let AI analyze defects.")
 
 st.markdown("---")
 
-# Tabs
-tab1, tab2 = st.tabs(["🏠 Pending Properties", "📸 Conduct Inspection"])
-
-# Tab 1: Pending Properties
-with tab1:
-    st.subheader("Properties Awaiting Inspection")
+# View: Pending Properties List
+if st.session_state.inspector_view == 'list':
+    st.subheader("🏠 Properties Awaiting Inspection")
     
     with st.spinner("Loading pending properties..."):
         result = get_pending_properties()
@@ -75,7 +77,6 @@ with tab1:
             st.success(f"Found {len(result['data'])} properties pending inspection")
             
             for row in result['data']:
-                # Unpack all columns
                 (prop_id, seller_name, seller_email, address, city, state, pincode, 
                 prop_type, bedrooms, bathrooms, sqft, price, description, landmarks, 
                 status, created_at, inspected_at, risk_score, risk_level, 
@@ -105,21 +106,30 @@ with tab1:
                             'type': prop_type,
                             'seller': seller_name
                         }
+                        st.session_state.inspector_view = 'inspect'
                         st.rerun()
                     
                     st.markdown("---")
         else:
             st.info("✅ No properties pending inspection at the moment.")
 
-# Tab 2: Conduct Inspection
-with tab2:
+# View: Conduct Inspection
+elif st.session_state.inspector_view == 'inspect':
     if 'selected_property' not in st.session_state:
-        st.warning("⚠️ Please select a property from the 'Pending Properties' tab first.")
+        st.warning("⚠️ No property selected.")
+        if st.button("← Back to Properties List"):
+            st.session_state.inspector_view = 'list'
+            st.rerun()
     else:
         property_id = st.session_state.selected_property
         prop_details = st.session_state.property_details
         
-        st.success(f"Inspecting: **{prop_details['address']}** (ID: {property_id})")
+        # Back button
+        if st.button("← Back to Properties List"):
+            st.session_state.inspector_view = 'list'
+            st.rerun()
+        
+        st.success(f"📸 Conducting Inspection: **{prop_details['address']}** (ID: {property_id})")
         
         st.markdown("---")
         
@@ -128,15 +138,12 @@ with tab2:
         
         st.markdown("### 📸 Upload Images Room-wise")
         
-        # Room selection
         rooms = ["Kitchen", "Living Room", "Master Bedroom", "Bedroom 2", "Bedroom 3", 
                  "Bathroom 1", "Bathroom 2", "Balcony", "Other"]
         
-        # Store all findings
         if 'all_findings' not in st.session_state:
             st.session_state.all_findings = []
         
-        # Room-wise upload
         for room in rooms:
             with st.expander(f"📍 {room}", expanded=False):
                 col1, col2 = st.columns([2, 1])
@@ -160,21 +167,16 @@ with tab2:
                 if uploaded_files:
                     st.info(f"📸 {len(uploaded_files)} image(s) uploaded for {room}")
                     
-                    # Show thumbnails
                     cols = st.columns(min(len(uploaded_files), 4))
                     for idx, file in enumerate(uploaded_files):
                         with cols[idx % 4]:
                             image = Image.open(file)
                             st.image(image, caption=file.name, use_container_width=True)
                     
-                    # Analyze button
                     if st.button(f"🤖 Analyze {room} Images", key=f"analyze_{room}"):
                         with st.spinner(f"AI is analyzing {room} images..."):
                             for file in uploaded_files:
-                                # Reset file pointer
                                 file.seek(0)
-                                
-                                # Analyze with AI
                                 defects = analyze_property_image(file, room)
                                 
                                 for defect in defects:
@@ -188,7 +190,6 @@ with tab2:
                                     }
                                     st.session_state.all_findings.append(finding)
                             
-                            # Parse notes if any
                             if room_notes:
                                 notes_defects = parse_inspector_notes(room_notes, room)
                                 for defect in notes_defects:
@@ -207,7 +208,6 @@ with tab2:
         
         st.markdown("---")
         
-        # Show current findings
         if st.session_state.all_findings:
             st.markdown("### 📋 Current Findings")
             st.info(f"Total defects found: **{len(st.session_state.all_findings)}**")
@@ -225,8 +225,6 @@ with tab2:
             st.dataframe(findings_df_data, use_container_width=True)
             
             st.markdown("---")
-            
-            # Submit inspection
             st.markdown("### ✅ Submit Inspection Report")
             
             if st.button("🚀 Generate Report & Submit", type="primary", use_container_width=True):
@@ -234,19 +232,16 @@ with tab2:
                     st.error("Please enter a valid inspector email!")
                 else:
                     with st.spinner("Processing inspection data..."):
-                        # Calculate metrics
                         risk_score = calculate_risk_score(st.session_state.all_findings)
                         risk_level = assign_risk_level(risk_score)
                         min_cost, max_cost = calculate_renovation_costs(st.session_state.all_findings)
                         stats = get_statistics(st.session_state.all_findings)
                         recommendations = get_improvement_recommendations(st.session_state.all_findings)
                         
-                        # Insert findings into database
                         conn = get_snowflake_connection()
                         cursor = conn.cursor()
                         
                         try:
-                            # Insert findings
                             for finding in st.session_state.all_findings:
                                 finding_id = f"FIND_{uuid.uuid4().hex[:8].upper()}"
                                 cursor.execute("""
@@ -259,7 +254,6 @@ with tab2:
                                     finding['description'], finding['source']
                                 ))
                             
-                            # Insert improvements
                             for rec in recommendations:
                                 improvement_id = f"IMP_{uuid.uuid4().hex[:8].upper()}"
                                 cursor.execute("""
@@ -273,13 +267,11 @@ with tab2:
                                     rec['affected_rooms']
                                 ))
                             
-                            # Generate AI summary
                             summary_text = generate_inspection_summary(
                                 {'address': prop_details['address'], 'risk_score': risk_score},
                                 st.session_state.all_findings
                             )
                             
-                            # Insert summary
                             summary_id = f"SUM_{uuid.uuid4().hex[:8].upper()}"
                             cursor.execute("""
                             INSERT INTO INSPECTION_SUMMARY
@@ -292,7 +284,6 @@ with tab2:
                                 stats['affected_rooms']
                             ))
                             
-                            # Update property
                             cursor.execute("""
                             UPDATE PROPERTIES SET
                                 status = 'inspected',
@@ -316,7 +307,6 @@ with tab2:
                             st.success("✅ Inspection completed successfully!")
                             st.balloons()
                             
-                            # Show summary
                             st.markdown("### 📊 Inspection Summary")
                             col1, col2, col3, col4 = st.columns(4)
                             col1.metric("Risk Score", f"{risk_score}")
@@ -328,16 +318,16 @@ with tab2:
                             st.markdown("### 💰 Total Renovation Cost Estimate")
                             col_min, col_max = st.columns(2)
                             with col_min:
-                                st.metric("Minimum Cost", f"₹{reno_min:,}")
+                                st.metric("Minimum Cost", f"₹{min_cost:,}")
                             with col_max:
-                                st.metric("Maximum Cost", f"₹{reno_max:,}")
+                                st.metric("Maximum Cost", f"₹{max_cost:,}")
                             
                             st.info(summary_text)
                             
-                            # Clear session
                             del st.session_state.selected_property
                             del st.session_state.all_findings
                             del st.session_state.property_details
+                            st.session_state.inspector_view = 'list'
                             
                         except Exception as e:
                             conn.rollback()
@@ -351,7 +341,6 @@ with tab2:
 with st.sidebar:
     st.markdown("### 📊 Inspector Stats")
     
-    # Get statistics
     total_query = "SELECT COUNT(*) FROM PROPERTIES WHERE status = 'inspected'"
     total_result = execute_query(total_query)
     if total_result and total_result.get('data'):
@@ -382,7 +371,6 @@ with st.sidebar:
     - Multiple angles help AI accuracy
     """)
 
-# Footer
 st.markdown("---")
 if st.button("🏠 Back to Home"):
     st.switch_page("app.py")
