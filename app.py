@@ -146,5 +146,6 @@ st.markdown("""
     </h3>
     <p style="font-size: 1.1rem; margin: 1rem 0;">Making Property Purchases Transparent & Safe</p>
     <p style="opacity: 0.7;">AI for Good Hackathon 2025 | Powered by Snowflake & Gemini AI</p>
+    <p> Made by Kritika Benjwal</p>
 </div>
 """, unsafe_allow_html=True)
