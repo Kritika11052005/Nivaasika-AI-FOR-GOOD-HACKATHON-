@@ -135,3 +135,33 @@ def get_inspection_summary(property_id):
     WHERE property_id = '{property_id}'
     """
     return execute_query(query)
+
+
+
+def insert_property_image(image_data):
+    """Insert a property gallery image"""
+    query = """
+    INSERT INTO PROPERTY_GALLERY (
+        gallery_id, property_id, image_name, image_data, 
+        uploaded_by, image_order
+    ) VALUES (
+        %(gallery_id)s, %(property_id)s, %(image_name)s, 
+        %(image_data)s, %(uploaded_by)s, %(image_order)s
+    )
+    """
+    return execute_query(query, image_data)
+
+def get_property_gallery(property_id):
+    """Get all gallery images for a property"""
+    query = f"""
+    SELECT gallery_id, image_name, image_data, uploaded_at, image_order
+    FROM PROPERTY_GALLERY 
+    WHERE property_id = '{property_id}'
+    ORDER BY image_order ASC, uploaded_at ASC
+    """
+    return execute_query(query)
+
+def delete_property_image(gallery_id):
+    """Delete a specific gallery image"""
+    query = f"DELETE FROM PROPERTY_GALLERY WHERE gallery_id = '{gallery_id}'"
+    return execute_query(query)

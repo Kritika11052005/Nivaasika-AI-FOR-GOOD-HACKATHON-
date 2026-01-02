@@ -1,13 +1,16 @@
 import streamlit as st
 import uuid
+import base64
 from datetime import datetime
-from utils.database import insert_property, execute_query
+from utils.database import insert_property, execute_query, insert_property_image
 from utils.theme import init_theme, toggle_theme, apply_theme_styles
+
 st.set_page_config(
     page_title="Seller Dashboard - Nivaasika",
     page_icon="🏪",
     layout="wide"
 )
+
 # Initialize and apply theme
 init_theme()
 apply_theme_styles()
@@ -19,24 +22,6 @@ with col3:
     if st.button(theme_icon, key="theme_toggle"):
         toggle_theme()
         st.rerun()
-# Custom CSS
-st.markdown("""
-<style>
-    .main-header {
-        font-size: 2.5rem;
-        font-weight: bold;
-        color: #FF6B35;
-        margin-bottom: 1rem;
-    }
-    .success-box {
-        background-color: #d4edda;
-        border: 1px solid #c3e6cb;
-        border-radius: 5px;
-        padding: 1rem;
-        margin: 1rem 0;
-    }
-</style>
-""", unsafe_allow_html=True)
 
 # Header
 st.markdown('<div class="main-header">🏪 Seller Dashboard</div>', unsafe_allow_html=True)
@@ -84,6 +69,34 @@ with tab1:
             height=80
         )
         
+        st.markdown("---")
+        st.markdown("### 📸 Property Photos")
+        st.caption("Upload high-quality photos of your property. These will be visible to buyers after inspection.")
+        
+        property_images = st.file_uploader(
+            "Upload Property Images (Max 10 images)",
+            type=['jpg', 'jpeg', 'png'],
+            accept_multiple_files=True,
+            help="Upload exterior, interior, and room photos"
+        )
+        
+        if property_images:
+            if len(property_images) > 10:
+                st.warning("⚠️ Maximum 10 images allowed. Only first 10 will be uploaded.")
+                property_images = property_images[:10]
+            
+            st.info(f"📸 {len(property_images)} image(s) selected")
+            
+            # Show thumbnails
+            cols = st.columns(min(len(property_images), 5))
+            for idx, img in enumerate(property_images[:5]):
+                with cols[idx]:
+                    st.image(img, use_container_width=True, caption=f"Image {idx+1}")
+            
+            if len(property_images) > 5:
+                st.caption(f"+ {len(property_images) - 5} more images")
+        
+        st.markdown("---")
         st.markdown("**Note:** Properties marked with * are required fields.")
         
         submitted = st.form_submit_button("Submit Property for Inspection", use_container_width=True, type="primary")
@@ -98,7 +111,7 @@ with tab1:
                 # Generate property ID
                 property_id = f"PROP_{uuid.uuid4().hex[:8].upper()}"
                 
-                # Prepare data
+                # Prepare property data
                 property_data = {
                     'property_id': property_id,
                     'seller_name': seller_name,
@@ -116,20 +129,46 @@ with tab1:
                     'nearby_landmarks': nearby_landmarks if nearby_landmarks else 'Not specified'
                 }
                 
-                # Insert into database
+                # Insert property into database
                 with st.spinner("Submitting property..."):
                     result = insert_property(property_data)
                     
                     if result and result.get('success'):
+                        # Upload images if any
+                        if property_images:
+                            with st.spinner(f"Uploading {len(property_images)} images..."):
+                                for idx, img_file in enumerate(property_images):
+                                    try:
+                                        # Read and encode image
+                                        img_bytes = img_file.read()
+                                        img_base64 = base64.b64encode(img_bytes).decode()
+                                        
+                                        # Prepare image data
+                                        image_data = {
+                                            'gallery_id': f"IMG_{uuid.uuid4().hex[:8].upper()}",
+                                            'property_id': property_id,
+                                            'image_name': img_file.name,
+                                            'image_data': img_base64,
+                                            'uploaded_by': seller_email,
+                                            'image_order': idx
+                                        }
+                                        
+                                        # Insert image
+                                        insert_property_image(image_data)
+                                    except Exception as e:
+                                        st.warning(f"Failed to upload {img_file.name}: {str(e)}")
+                        
                         st.success("✅ Property submitted successfully!")
+                        
                         st.markdown(f"""
-                        <div class="success-box">
-                            <h4>Property ID: {property_id}</h4>
+                        <div style="background-color: #d4edda; border: 1px solid #c3e6cb; border-radius: 10px; padding: 1.5rem; margin: 1rem 0;">
+                            <h3 style="color: #155724;">Property ID: {property_id}</h3>
                             <p><strong>What's Next?</strong></p>
-                            <ul>
+                            <ul style="color: #155724;">
                                 <li>Your property is now <strong>pending inspection</strong></li>
+                                <li>{len(property_images) if property_images else 0} photos uploaded successfully</li>
                                 <li>Our inspection team will review and inspect the property</li>
-                                <li>Once inspected, it will be visible to buyers</li>
+                                <li>Once inspected, it will be visible to buyers with your photos</li>
                                 <li>You'll be notified via email at <strong>{seller_email}</strong></li>
                             </ul>
                         </div>
@@ -175,6 +214,14 @@ with tab2:
                             with col1:
                                 st.markdown(f"**{address}**")
                                 st.caption(f"📍 {city} | {prop_type} | ₹{price:,}")
+                                
+                                # Show image count
+                                img_query = f"SELECT COUNT(*) FROM PROPERTY_GALLERY WHERE property_id = '{prop_id}'"
+                                img_result = execute_query(img_query)
+                                if img_result and img_result.get('data'):
+                                    img_count = img_result['data'][0][0]
+                                    if img_count > 0:
+                                        st.caption(f"📸 {img_count} photos uploaded")
                             
                             with col2:
                                 if status == 'pending':
@@ -217,10 +264,11 @@ with st.sidebar:
     
     st.markdown("### 💡 Tips for Sellers")
     st.info("""
-    - Provide accurate property details
+    - Upload clear, high-quality photos
+    - Include photos of all rooms
+    - Show exterior and interior views
+    - Good photos attract more buyers
     - Be honest about property condition
-    - Inspection helps build buyer trust
-    - Properties with low risk sell faster
     """)
 
 # Footer
