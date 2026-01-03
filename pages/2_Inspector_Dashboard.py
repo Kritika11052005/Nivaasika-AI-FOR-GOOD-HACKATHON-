@@ -66,16 +66,17 @@ st.markdown("Inspect properties, upload images, and let AI analyze defects.")
 
 st.markdown("---")
 #Test secrets loading
-""" st.write("🔍 Debug Info:")
-st.write("Secrets available:", list(st.secrets.keys()))
-st.write("Has GEMINI_API_KEY:", 'GEMINI_API_KEY' in st.secrets)
+#st.write("🔍 Debug Info:")
+#st.write("Secrets available:", list(st.secrets.keys()))
 
-if 'GEMINI_API_KEY' in st.secrets:
-    key = st.secrets['GEMINI_API_KEY']
-    st.success(f"✅ API Key loaded: {key[:20]}...")
-else:
-    st.error("❌ GEMINI_API_KEY not found!")
-    st.write("Available keys:", list(st.secrets.keys())) """
+#st.write("Has GEMINI_API_KEY:", 'GEMINI_API_KEY' in st.secrets)
+
+#if 'GEMINI_API_KEY' in st.secrets:
+    #key = st.secrets['GEMINI_API_KEY']
+    #st.success(f"✅ API Key loaded: {key[:20]}...")
+#else:
+    #st.error("❌ GEMINI_API_KEY not found!")
+    #st.write("Available keys:", list(st.secrets.keys())) """
 # View: Pending Properties List
 if st.session_state.inspector_view == 'list':
     st.subheader("🏠 Properties Awaiting Inspection")
