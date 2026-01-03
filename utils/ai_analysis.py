@@ -1,33 +1,34 @@
-from google import genai
-from google.genai import types
+import google.generativeai as genai
 import os
 import json
 from PIL import Image
 import io
 import streamlit as st
 from utils.rate_limiter import gemini_rate_limiter
+import traceback
 
 # Configure Gemini API
 def get_gemini_api_key():
-    """Get Gemini API key from secrets or environment"""
+    """Get Gemini API key from Streamlit secrets"""
     try:
-        # Try Streamlit secrets first (for cloud deployment)
-        if hasattr(st, 'secrets') and 'GEMINI_API_KEY' in st.secrets:
+        if 'GEMINI_API_KEY' in st.secrets:
             return st.secrets['GEMINI_API_KEY']
-        # Fall back to environment variable (for local development)
         else:
-            from dotenv import load_dotenv
-            load_dotenv()
-            return os.getenv('GEMINI_API_KEY')
+            st.error("❌ GEMINI_API_KEY not found in .streamlit/secrets.toml")
+            return None
     except Exception as e:
-        st.error(f"Failed to load Gemini API key: {str(e)}")
+        st.error(f"❌ Failed to load API key: {str(e)}")
         return None
 
-# Get API key and create client
+# Get API key and configure
 api_key = get_gemini_api_key()
-client = None
+
 if api_key:
-    client = genai.Client(api_key=api_key)
+    try:
+        genai.configure(api_key=api_key)
+        st.success("✅ Gemini API configured successfully")
+    except Exception as e:
+        st.error(f"❌ Failed to configure Gemini: {str(e)}")
 
 # Flag to enable/disable mock mode
 USE_MOCK_MODE = False  # Set to True to use mock data instead of API
@@ -40,11 +41,14 @@ def analyze_property_image(image_file, room_name):
     
     # Check if mock mode is enabled
     if USE_MOCK_MODE:
+        st.write("🔍 Debug: Mock mode is ON")
         return _get_mock_defects(room_name)
     
-    if not client:
-        st.error("Gemini API client not initialized!")
+    if not api_key:
+        st.error("❌ Gemini API key not configured!")
         return _get_mock_defects(room_name)
+    
+    st.write("🔍 Debug: Starting API call...")
     
     try:
         # Check rate limit before making request
@@ -56,11 +60,10 @@ def analyze_property_image(image_file, room_name):
         else:
             st.info(f"ℹ️ API requests remaining: {remaining}")
         
-        # Load image and convert to bytes
+        # Load image
+        st.write("🔍 Debug: Loading image...")
         image = Image.open(image_file)
-        img_byte_arr = io.BytesIO()
-        image.save(img_byte_arr, format='PNG')
-        img_byte_arr = img_byte_arr.getvalue()
+        st.write(f"🔍 Debug: Image loaded: {image.size}")
         
         # Create prompt for Gemini
         prompt = f"""
@@ -98,25 +101,20 @@ Be thorough and detailed. Look for:
         # Record API request
         gemini_rate_limiter.record_request()
         
-        # Call Gemini API with new package structure
-        response = client.models.generate_content(
-            model='gemini-2.0-flash-exp',
-            contents=[
-                types.Content(
-                    role="user",
-                    parts=[
-                        types.Part.from_text(text=prompt),
-                        types.Part.from_bytes(
-                            data=img_byte_arr,
-                            mime_type="image/png"
-                        )
-                    ]
-                )
-            ]
-        )
+        st.info("🤖 Sending image to Gemini AI for analysis...")
+        st.write("🔍 Debug: About to call API...")
+        
+        # Use the gemini-2.0-flash model
+        model = genai.GenerativeModel('gemini-2.0-flash-exp')
+        
+        response = model.generate_content([prompt, image])
+        
+        st.write("🔍 Debug: API call successful!")
+        st.success("✅ AI analysis complete!")
         
         # Parse response
         response_text = response.text.strip()
+        st.write(f"🔍 Debug: Response preview: {response_text[:200]}...")
         
         # Remove markdown code blocks if present
         if response_text.startswith('```json'):
@@ -131,14 +129,29 @@ Be thorough and detailed. Look for:
         # Parse JSON
         result = json.loads(response_text)
         
-        return result.get('defects', [])
+        defects = result.get('defects', [])
+        
+        if defects:
+            st.info(f"🔍 Found {len(defects)} defect(s) in {room_name}")
+        else:
+            st.success(f"✅ No defects found in {room_name}")
+        
+        return defects
         
     except json.JSONDecodeError as e:
-        st.error(f"JSON parsing error: {e}")
+        st.error(f"❌ JSON parsing error: {e}")
         st.error(f"Response was: {response_text[:200]}...")
         return []
     except Exception as e:
         error_msg = str(e)
+        
+        # ADD DETAILED ERROR INFO
+        st.error(f"❌ API Error: {error_msg}")
+        st.error(f"Error type: {type(e).__name__}")
+        st.write(f"🔍 Debug: Full error: {repr(e)}")
+        
+        # Print the full traceback
+        st.code(traceback.format_exc())
         
         # Check for quota errors
         if '429' in error_msg or 'quota' in error_msg.lower():
@@ -146,8 +159,8 @@ Be thorough and detailed. Look for:
             st.warning("💡 Switching to mock mode for demo...")
             return _get_mock_defects(room_name)
         
-        st.error(f"Error analyzing image: {error_msg}")
-        return []
+        st.warning("⚠️ Falling back to mock data...")
+        return _get_mock_defects(room_name)
 
 def parse_inspector_notes(notes_text, room_name):
     """
@@ -161,7 +174,7 @@ def parse_inspector_notes(notes_text, room_name):
     if USE_MOCK_MODE:
         return []
     
-    if not client:
+    if not api_key:
         return []
     
     try:
@@ -198,10 +211,10 @@ If no defects mentioned, return: {{"defects": []}}
         # Record request
         gemini_rate_limiter.record_request()
         
-        response = client.models.generate_content(
-            model='gemini-2.0-flash-exp',
-            contents=prompt
-        )
+        st.info("🤖 Analyzing inspector notes with AI...")
+        
+        model = genai.GenerativeModel('gemini-2.0-flash-exp')
+        response = model.generate_content(prompt)
         
         response_text = response.text.strip()
         
@@ -216,10 +229,17 @@ If no defects mentioned, return: {{"defects": []}}
         response_text = response_text.strip()
         
         result = json.loads(response_text)
-        return result.get('defects', [])
+        defects = result.get('defects', [])
+        
+        if defects:
+            st.success(f"✅ Extracted {len(defects)} defect(s) from notes")
+        
+        return defects
         
     except Exception as e:
-        st.warning(f"Could not parse notes with AI: {str(e)}")
+        st.warning(f"⚠️ Could not parse notes with AI: {str(e)}")
+        st.write(f"🔍 Debug: Full error: {repr(e)}")
+        st.code(traceback.format_exc())
         return []
 
 def generate_inspection_summary(property_data, findings):
@@ -231,7 +251,7 @@ def generate_inspection_summary(property_data, findings):
     if USE_MOCK_MODE:
         return _get_mock_summary(property_data, findings)
     
-    if not client:
+    if not api_key:
         return _get_mock_summary(property_data, findings)
     
     try:
@@ -266,15 +286,15 @@ Be professional, clear, and honest. Don't sugarcoat serious issues.
         # Record request
         gemini_rate_limiter.record_request()
         
-        response = client.models.generate_content(
-            model='gemini-2.0-flash-exp',
-            contents=prompt
-        )
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        response = model.generate_content(prompt)
         
         return response.text.strip()
         
     except Exception as e:
-        st.warning("Using fallback summary generation")
+        st.warning("⚠️ Using fallback summary generation")
+        st.write(f"🔍 Debug: Full error: {repr(e)}")
+        st.code(traceback.format_exc())
         return _get_mock_summary(property_data, findings)
 
 # Mock data functions for when API is unavailable
@@ -298,6 +318,18 @@ def _get_mock_defects(room_name):
         'Master Bedroom': [
             {'defect_type': 'finishing', 'severity': 2, 'description': 'Minor cosmetic issues'}
         ],
+        'Bedroom 2': [
+            {'defect_type': 'crack', 'severity': 3, 'description': 'Small crack near door frame'}
+        ],
+        'Bedroom 3': [
+            {'defect_type': 'finishing', 'severity': 2, 'description': 'Paint touch-up needed'}
+        ],
+        'Balcony': [
+            {'defect_type': 'structural', 'severity': 5, 'description': 'Minor weathering on railing'}
+        ],
+        'Other': [
+            {'defect_type': 'finishing', 'severity': 2, 'description': 'General wear and tear'}
+        ]
     }
     
     return mock_defects.get(room_name, [])
