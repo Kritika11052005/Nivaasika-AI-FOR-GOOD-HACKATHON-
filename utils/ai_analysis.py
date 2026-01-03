@@ -23,12 +23,12 @@ def get_gemini_api_key():
 # Get API key and configure
 api_key = get_gemini_api_key()
 
-if api_key:
-    try:
-        genai.configure(api_key=api_key)
-        st.success("✅ Gemini API configured successfully")
-    except Exception as e:
-        st.error(f"❌ Failed to configure Gemini: {str(e)}")
+#if api_key:
+    #try:
+        #genai.configure(api_key=api_key)
+        #st.success("✅ Gemini API configured successfully")
+    #except Exception as e:
+        #st.error(f"❌ Failed to configure Gemini: {str(e)}")
 
 # Flag to enable/disable mock mode
 USE_MOCK_MODE = False  # Set to True to use mock data instead of API
