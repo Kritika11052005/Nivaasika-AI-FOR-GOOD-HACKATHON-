@@ -1,7 +1,9 @@
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 import os
 import json
 from PIL import Image
+import io
 import streamlit as st
 from utils.rate_limiter import gemini_rate_limiter
 
@@ -21,10 +23,11 @@ def get_gemini_api_key():
         st.error(f"Failed to load Gemini API key: {str(e)}")
         return None
 
-# Configure Gemini
+# Get API key and create client
 api_key = get_gemini_api_key()
+client = None
 if api_key:
-    genai.configure(api_key=api_key)
+    client = genai.Client(api_key=api_key)
 
 # Flag to enable/disable mock mode
 USE_MOCK_MODE = False  # Set to True to use mock data instead of API
@@ -39,6 +42,10 @@ def analyze_property_image(image_file, room_name):
     if USE_MOCK_MODE:
         return _get_mock_defects(room_name)
     
+    if not client:
+        st.error("Gemini API client not initialized!")
+        return _get_mock_defects(room_name)
+    
     try:
         # Check rate limit before making request
         remaining = gemini_rate_limiter.get_remaining_requests()
@@ -49,8 +56,11 @@ def analyze_property_image(image_file, room_name):
         else:
             st.info(f"ℹ️ API requests remaining: {remaining}")
         
-        # Load image
+        # Load image and convert to bytes
         image = Image.open(image_file)
+        img_byte_arr = io.BytesIO()
+        image.save(img_byte_arr, format='PNG')
+        img_byte_arr = img_byte_arr.getvalue()
         
         # Create prompt for Gemini
         prompt = f"""
@@ -88,9 +98,22 @@ Be thorough and detailed. Look for:
         # Record API request
         gemini_rate_limiter.record_request()
         
-        # Call Gemini API
-        model = genai.GenerativeModel('gemini-2.0-flash-exp')
-        response = model.generate_content([prompt, image])
+        # Call Gemini API with new package structure
+        response = client.models.generate_content(
+            model='gemini-2.0-flash-exp',
+            contents=[
+                types.Content(
+                    role="user",
+                    parts=[
+                        types.Part.from_text(text=prompt),
+                        types.Part.from_bytes(
+                            data=img_byte_arr,
+                            mime_type="image/png"
+                        )
+                    ]
+                )
+            ]
+        )
         
         # Parse response
         response_text = response.text.strip()
@@ -138,6 +161,9 @@ def parse_inspector_notes(notes_text, room_name):
     if USE_MOCK_MODE:
         return []
     
+    if not client:
+        return []
+    
     try:
         # Check rate limit
         if gemini_rate_limiter.get_remaining_requests() <= 0:
@@ -172,8 +198,10 @@ If no defects mentioned, return: {{"defects": []}}
         # Record request
         gemini_rate_limiter.record_request()
         
-        model = genai.GenerativeModel('gemini-2.0-flash-exp')
-        response = model.generate_content(prompt)
+        response = client.models.generate_content(
+            model='gemini-2.0-flash-exp',
+            contents=prompt
+        )
         
         response_text = response.text.strip()
         
@@ -201,6 +229,9 @@ def generate_inspection_summary(property_data, findings):
     
     # Check if mock mode
     if USE_MOCK_MODE:
+        return _get_mock_summary(property_data, findings)
+    
+    if not client:
         return _get_mock_summary(property_data, findings)
     
     try:
@@ -235,8 +266,10 @@ Be professional, clear, and honest. Don't sugarcoat serious issues.
         # Record request
         gemini_rate_limiter.record_request()
         
-        model = genai.GenerativeModel('gemini-2.0-flash-exp')
-        response = model.generate_content(prompt)
+        response = client.models.generate_content(
+            model='gemini-2.0-flash-exp',
+            contents=prompt
+        )
         
         return response.text.strip()
         
